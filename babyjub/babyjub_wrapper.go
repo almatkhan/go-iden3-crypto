@@ -66,6 +66,25 @@ func (w *BjjWrappedPrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.S
 	return sig.Compress().MarshalText()
 }
 
+// SignUncompressed signs the digest with the private key and returns uncompressed signature.
+func (w *BjjWrappedPrivateKey) SignUncompressed(rand io.Reader, digest []byte, opts crypto.SignerOpts) (*Signature, error) {
+	hash := opts.HashFunc()
+
+	switch hash {
+	// alredy hashed
+	case crypto.Hash(0):
+	default:
+		hasher := hash.New()
+		hasher.Write(digest)
+		digest = hasher.Sum(nil)
+	}
+
+	digestBI := big.NewInt(0).SetBytes(digest)
+	sig := w.privKey.SignPoseidon(digestBI)
+
+	return sig, nil
+}
+
 // Equal returns true if the private keys are equal.
 func (w *BjjWrappedPrivateKey) Equal(x crypto.PrivateKey) bool {
 	var xk *BjjWrappedPrivateKey
