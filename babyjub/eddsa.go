@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"database/sql/driver"
 	"fmt"
+	"log"
 	"math/big"
 
 	"github.com/almatkhan/go-iden3-crypto/mimc7"
@@ -351,6 +352,9 @@ func (pk *PrivateKey) BlindSign(blindMsg *big.Int) (*Signature, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error hashing message: %v", err)
 	}
+
+	log.Printf("hmInput: %v", hmInput)
+	log.Printf("ePrime: %v", ePrime)
 
 	// Compute e = e' + b mod L
 	e := new(big.Int).Add(ePrime, b)

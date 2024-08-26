@@ -91,6 +91,10 @@ func TestBlindTest(t *testing.T) {
 
 	// Print Bob's public key
 	t.Logf("X: %s\nY: %s\n", bobSK.Public().X.String(), bobSK.Public().Y.String())
+
+	// Verify the signature
+	ok := bobSK.Public().VerifyPoseidon(msgInt, sig)
+	assert.Equal(t, true, ok)
 }
 
 func TestSignVerifyPoseidon(t *testing.T) {

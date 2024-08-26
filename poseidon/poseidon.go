@@ -67,9 +67,9 @@ func HashWithState(inpBI []*big.Int, initState *big.Int) (*big.Int, error) {
 	if len(inpBI) == 0 || len(inpBI) > len(NROUNDSP) {
 		return nil, fmt.Errorf("invalid inputs length %d, max %d", len(inpBI), len(NROUNDSP))
 	}
-	if !utils.CheckBigIntArrayInField(inpBI) {
-		return nil, errors.New("inputs values not inside Finite Field")
-	}
+	// if !utils.CheckBigIntArrayInField(inpBI) {
+	// 	return nil, errors.New("inputs values not inside Finite Field")
+	// }
 	inp := utils.BigIntArrayToElementArray(inpBI)
 
 	nRoundsF := NROUNDSF
