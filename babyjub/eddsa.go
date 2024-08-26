@@ -312,6 +312,72 @@ func (k *PrivateKey) SignPoseidon(msg *big.Int) *Signature {
 	return &Signature{R8: R8, S: S}
 }
 
+func (pk *PrivateKey) BlindSign(blindMsg *big.Int) (*Signature, error) {
+
+	// Get Bob's public Key derived from the private key
+	bobPublicKey := pk.Public().Point()
+
+	// Step 1: Bob generates random nonce bobK and computes R = bobK*G
+	bobK, _ := rand.Int(rand.Reader, Order)
+	bobR8 := NewPoint().Mul(bobK, B8)
+
+	// Send R8 to Alice
+
+	// Step 2: Alice picks random a, b and computes R', e', e
+	a, _ := rand.Int(rand.Reader, Order)
+	b, _ := rand.Int(rand.Reader, Order)
+
+	// Compute a*G
+	aG := NewPoint().Mul(a, B8)
+
+	// Compute b*P (Bob's public key)
+	bP := NewPoint().Mul(b, bobPublicKey)
+
+	// Compute R' = R8 + a*G + b*P
+	RPrime := NewPoint()
+	RPrime = RPrime.Set(bobR8)
+	RPrime.Add(aG)
+	RPrime.Add(bP)
+
+	// Rprime = new(edwards25519.Point).Add(Rprime, bP)
+
+	// Compute e' = H(R' || P || M) using the mock Hash function
+	// message := []byte("This is the message to be signed")
+
+	hmInput := []*big.Int{RPrime.X, RPrime.Y, bobPublicKey.X, bobPublicKey.Y, blindMsg}
+	// hmInput := []*big.Int{blindMsg}
+
+	ePrime, err := poseidon.Hash(hmInput)
+	if err != nil {
+		return nil, fmt.Errorf("error hashing message: %v", err)
+	}
+
+	// Compute e = e' + b mod L
+	e := new(big.Int).Add(ePrime, b)
+	e.Mod(e, Order)
+
+	// Send e to Bob
+
+	// Step 3: Bob computes s = e*x + k mod L
+	x := new(big.Int).SetBytes(pk[:])
+	s := new(big.Int).Mul(e, x)
+	s.Add(s, bobK)
+	s.Mod(s, Order)
+
+	// Send s to Alice
+
+	// Step 4: Alice computes s' = s + a mod L
+	sprime := new(big.Int).Add(s, a)
+	sprime.Mod(sprime, Order)
+
+	// The pair (R', s') is a valid signature
+	fmt.Println("Signature Rx':", RPrime.X)
+	fmt.Println("Signature Ry':", RPrime.Y)
+	fmt.Println("Signature s':", sprime)
+
+	return &Signature{R8: RPrime, S: sprime}, nil
+}
+
 // VerifyPoseidon verifies the signature of a message encoded as a big.Int in Zq
 // using blake-512 hash for buffer hashing and Poseidon for big.Int hashing.
 func (pk *PublicKey) VerifyPoseidon(msg *big.Int, sig *Signature) bool {

@@ -164,6 +164,13 @@ func (p *Point) Mul(s *big.Int, q *Point) *Point {
 	return p
 }
 
+// Add method to add two Points
+func (p *Point) Add(other *Point) *Point {
+	p.X.Add(p.X, other.X)
+	p.Y.Add(p.Y, other.Y)
+	return p
+}
+
 // InCurve returns true when the Point p is in the babyjub curve.
 func (p *Point) InCurve() bool {
 	x2 := new(big.Int).Set(p.X)

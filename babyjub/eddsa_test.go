@@ -70,6 +70,29 @@ func TestSignVerifyMimc7(t *testing.T) {
 	assert.Equal(t, true, ok)
 }
 
+func TestBlindTest(t *testing.T) {
+	bobPrivateKey := "a78c9f2658379b856e171187218d39be75124a1d7f1b49cf2474e355a682e9e9"
+	b, err := hex.DecodeString(bobPrivateKey)
+	require.Nil(t, err)
+
+	bobSK := new(PrivateKey)
+	copy(bobSK[:], b)
+
+	msg := "0123456789"
+	msgBuf, err := hex.DecodeString(msg)
+	require.Nil(t, err)
+
+	msgInt := utils.SetBigIntFromLEBytes(new(big.Int), msgBuf)
+
+	sig, err := bobSK.BlindSign(msgInt)
+	require.Nil(t, err)
+
+	t.Logf("Rx: %s\nRy: %s\nS: %s\n", sig.R8.X.String(), sig.R8.Y.String(), sig.S.String())
+
+	// Print Bob's public key
+	t.Logf("X: %s\nY: %s\n", bobSK.Public().X.String(), bobSK.Public().Y.String())
+}
+
 func TestSignVerifyPoseidon(t *testing.T) {
 	var k PrivateKey
 	_, err := hex.Decode(k[:],
