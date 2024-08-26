@@ -313,10 +313,10 @@ func (k *PrivateKey) SignPoseidon(msg *big.Int) *Signature {
 	return &Signature{R8: R8, S: S}
 }
 
-func (pk *PrivateKey) BlindSign(blindMsg *big.Int) (*Signature, error) {
+func (k *PrivateKey) BlindSign(blindMsg *big.Int) (*Signature, error) {
 
 	// Get Bob's public Key derived from the private key
-	bobPublicKey := pk.Public().Point()
+	bobPublicKey := k.Public().Point()
 
 	// Step 1: Bob generates random nonce bobK and computes R = bobK*G
 	bobK, _ := rand.Int(rand.Reader, Order)
@@ -340,14 +340,8 @@ func (pk *PrivateKey) BlindSign(blindMsg *big.Int) (*Signature, error) {
 	RPrime.Add(aG)
 	RPrime.Add(bP)
 
-	// Rprime = new(edwards25519.Point).Add(Rprime, bP)
-
-	// Compute e' = H(R' || P || M) using the mock Hash function
-	// message := []byte("This is the message to be signed")
-
+	// Compute e' = H(R' || P || M) using the mock Poseidon Hash
 	hmInput := []*big.Int{RPrime.X, RPrime.Y, bobPublicKey.X, bobPublicKey.Y, blindMsg}
-	// hmInput := []*big.Int{blindMsg}
-
 	ePrime, err := poseidon.Hash(hmInput)
 	if err != nil {
 		return nil, fmt.Errorf("error hashing message: %v", err)
@@ -363,8 +357,7 @@ func (pk *PrivateKey) BlindSign(blindMsg *big.Int) (*Signature, error) {
 	// Send e to Bob
 
 	// Step 3: Bob computes s = e*x + k mod L
-	x := new(big.Int).SetBytes(pk[:])
-	s := new(big.Int).Mul(e, x)
+	s := new(big.Int).Mul(e, k.Scalar().BigInt())
 	s.Add(s, bobK)
 	s.Mod(s, Order)
 

@@ -75,8 +75,8 @@ func TestBlindTest(t *testing.T) {
 	b, err := hex.DecodeString(bobPrivateKey)
 	require.Nil(t, err)
 
-	bobSK := new(PrivateKey)
-	copy(bobSK[:], b)
+	bobPK := new(PrivateKey)
+	copy(bobPK[:], b)
 
 	msg := "0123456789"
 	msgBuf, err := hex.DecodeString(msg)
@@ -84,16 +84,16 @@ func TestBlindTest(t *testing.T) {
 
 	msgInt := utils.SetBigIntFromLEBytes(new(big.Int), msgBuf)
 
-	sig, err := bobSK.BlindSign(msgInt)
+	sig, err := bobPK.BlindSign(msgInt)
 	require.Nil(t, err)
 
 	t.Logf("Rx: %s\nRy: %s\nS: %s\n", sig.R8.X.String(), sig.R8.Y.String(), sig.S.String())
 
 	// Print Bob's public key
-	t.Logf("X: %s\nY: %s\n", bobSK.Public().X.String(), bobSK.Public().Y.String())
+	t.Logf("X: %s\nY: %s\n", bobPK.Public().X.String(), bobPK.Public().Y.String())
 
 	// Verify the signature
-	ok := bobSK.Public().VerifyPoseidon(msgInt, sig)
+	ok := bobPK.Public().VerifyPoseidon(msgInt, sig)
 	assert.Equal(t, true, ok)
 }
 
