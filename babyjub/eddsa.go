@@ -313,9 +313,9 @@ func (k *PrivateKey) SignPoseidon(msg *big.Int) *Signature {
 	return &Signature{R8: R8, S: S}
 }
 
-func (k *PrivateKey) BlindSign(msg *big.Int) (*Signature, error) {
+func (sk *PrivateKey) BlindSign(msg *big.Int) (*Signature, error) {
 	// Get Bob's public Key derived from the private key
-	bobPublicKey := k.Public().Point()
+	bobPublicKey := sk.Public().Point()
 
 	// Step 1: Bob generates random nonce bobK and computes R = bobK*G (mod P)
 	bobK, _ := rand.Int(rand.Reader, SubOrder)
@@ -341,8 +341,9 @@ func (k *PrivateKey) BlindSign(msg *big.Int) (*Signature, error) {
 
 	// R' = R8 + a*G + b*P
 	RPrime := NewPoint().Set(bobR8)
-	RPrime.Add(aG)
-	// RPrime.Add(bP)
+	RPrimeProj := RPrime.Projective()
+	RPrimeProj.Add(aG.Projective(), RPrimeProj)
+	RPrime = RPrimeProj.Affine()
 
 	// Step 2.3: Alice computes e' = H(R' || P || M) using the modulo Poseidon Hash
 	hmInput := []*big.Int{RPrime.X, RPrime.Y, bobPublicKey.X, bobPublicKey.Y, msg}
@@ -362,7 +363,7 @@ func (k *PrivateKey) BlindSign(msg *big.Int) (*Signature, error) {
 	// Alice sends e to Bob
 
 	// Step 3: Bob computes s = e*x + k mod q
-	S := new(big.Int).Lsh(k.Scalar().BigInt(), 3)
+	S := new(big.Int).Lsh(sk.Scalar().BigInt(), 3)
 	S = S.Mul(e, S)
 	S.Add(bobK, S)
 	S.Mod(S, SubOrder)

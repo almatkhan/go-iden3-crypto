@@ -164,19 +164,17 @@ func (p *Point) Mul(s *big.Int, q *Point) *Point {
 	return p
 }
 
-// Add method to add two Points
-func (p *Point) Add(other *Point) *Point {
-	p.X.Add(p.X, other.X)
-	p.Y.Add(p.Y, other.Y)
-	return p
-}
+// // Sub method to subtract two Points
+// func (p *Point) Sub(a, b *Point) *Point {
+// 	// Negate the Y coordinate of point b (i.e., find -b)
+// 	negB := &Point{X: new(big.Int).Set(b.X), Y: new(big.Int).Neg(b.Y)}
 
-// Sub method to subtract two Points
-func (p *Point) Sub(a, b *Point) *Point {
-	p.X.Sub(a.X, b.X)
-	p.Y.Sub(a.Y, b.Y)
-	return p
-}
+// 	// Ensure negB.Y is within the correct field by applying modulo operation
+// 	negB.Y.Mod(negB.Y, curvePrime) // Assuming curvePrime is the field prime
+
+// 	// Perform point addition of a and -b
+// 	return p.Add(a, negB)
+// }
 
 // InCurve returns true when the Point p is in the babyjub curve.
 func (p *Point) InCurve() bool {

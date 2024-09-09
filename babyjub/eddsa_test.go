@@ -99,8 +99,8 @@ func TestBlindTest(t *testing.T) {
 	t.Logf("privateKey: %s\n", bobPK.Scalar().BigInt().Text(10))
 
 	// Verify the signature
-	// ok := bobPK.Public().VerifyPoseidon(msgInt, sig)
-	// assert.Equal(t, true, ok)
+	ok := bobPK.Public().VerifyPoseidon(msgInt, sig)
+	assert.Equal(t, true, ok)
 }
 
 func TestSignVerifyPoseidon(t *testing.T) {

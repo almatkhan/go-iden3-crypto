@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/almatkhan/go-iden3-crypto/utils"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,20 +24,22 @@ func TestScnhorrSignVerify(t *testing.T) {
 
 	sig := sk.SchnorrSign(msgInt)
 
-	// Print the signature
-	fmt.Printf("\n+++Signature+++\nRx: %s\nRy: %s\nS: %s\n+++", sig.R8.X.String(), sig.R8.Y.String(), sig.S.String())
-
 	// Print public key
 	fmt.Printf("\n---Public Key---\nX: %s\nY: %s\n---", sk.Public().X.String(), sk.Public().Y.String())
 
 	// Print private key
 	fmt.Printf("\nxxxPrivateKeyxxx\n %s\nxxx\n", sk.Scalar().BigInt().Text(10))
 
+	// Print the signature
+	fmt.Printf("\n+++Signature+++\nRx: %s\nRy: %s\nS: %s\n+++", sig.R8.X.String(), sig.R8.Y.String(), sig.S.String())
+
 	// Verify the signature
 	point, ok := sk.SchnorrPublicKey().SchnorrVerify(msgInt, sig)
-	assert.Equal(t, true, ok)
 
 	// Print the point
-	fmt.Printf("\n+++Point+++\nX: %s\nY: %s\n+++", point.X.String(), point.Y.String())
+	fmt.Printf("\n+++Point+++\nX: %s\nY: %s\n+++\n", point.X.String(), point.Y.String())
 
+	if !ok {
+		t.Errorf("Signature verification failed")
+	}
 }
