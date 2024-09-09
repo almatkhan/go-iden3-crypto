@@ -171,6 +171,13 @@ func (p *Point) Add(other *Point) *Point {
 	return p
 }
 
+// Sub method to subtract two Points
+func (p *Point) Sub(a, b *Point) *Point {
+	p.X.Sub(a.X, b.X)
+	p.Y.Sub(a.Y, b.Y)
+	return p
+}
+
 // InCurve returns true when the Point p is in the babyjub curve.
 func (p *Point) InCurve() bool {
 	x2 := new(big.Int).Set(p.X)

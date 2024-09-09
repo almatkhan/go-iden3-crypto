@@ -67,9 +67,14 @@ func HashWithState(inpBI []*big.Int, initState *big.Int) (*big.Int, error) {
 	if len(inpBI) == 0 || len(inpBI) > len(NROUNDSP) {
 		return nil, fmt.Errorf("invalid inputs length %d, max %d", len(inpBI), len(NROUNDSP))
 	}
-	// if !utils.CheckBigIntArrayInField(inpBI) {
-	// 	return nil, errors.New("inputs values not inside Finite Field")
-	// }
+
+	const qString = "21888242871839275222246405745257275088548364400416034343698204186575808495617"
+	var Q, _ = new(big.Int).SetString(qString, 10)
+
+	for i, v := range inpBI {
+		inpBI[i] = inpBI[i].Mod(v, Q)
+	}
+
 	inp := utils.BigIntArrayToElementArray(inpBI)
 
 	nRoundsF := NROUNDSF

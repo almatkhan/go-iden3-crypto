@@ -313,66 +313,74 @@ func (k *PrivateKey) SignPoseidon(msg *big.Int) *Signature {
 	return &Signature{R8: R8, S: S}
 }
 
-func (k *PrivateKey) BlindSign(blindMsg *big.Int) (*Signature, error) {
-
+func (k *PrivateKey) BlindSign(msg *big.Int) (*Signature, error) {
 	// Get Bob's public Key derived from the private key
 	bobPublicKey := k.Public().Point()
 
-	// Step 1: Bob generates random nonce bobK and computes R = bobK*G
-	bobK, _ := rand.Int(rand.Reader, Order)
+	// Step 1: Bob generates random nonce bobK and computes R = bobK*G (mod P)
+	bobK, _ := rand.Int(rand.Reader, SubOrder)
 	bobR8 := NewPoint().Mul(bobK, B8)
+
+	fmt.Println("bobK:", bobK)
 
 	// Send R8 to Alice
 
-	// Step 2: Alice picks random a, b and computes R', e', e
-	a, _ := rand.Int(rand.Reader, Order)
-	b, _ := rand.Int(rand.Reader, Order)
+	// Step 2.1: Alice picks random a, b and computes
+	a, _ := rand.Int(rand.Reader, SubOrder)
+	b, _ := rand.Int(rand.Reader, SubOrder)
 
-	// Compute a*G
+	fmt.Println("a:", a)
+	fmt.Println("b:", b)
+
+	fmt.Println("total nonce:", new(big.Int).Add(a, b))
+
+	// Step 2.2: Alice computes R' = 8*R + a*G + b*P
+	// 		Compute a*G and b*P
 	aG := NewPoint().Mul(a, B8)
+	// bP := NewPoint().Mul(b, bobPublicKey)
 
-	// Compute b*P (Bob's public key)
-	bP := NewPoint().Mul(b, bobPublicKey)
-
-	// Compute R' = R8 + a*G + b*P
-	RPrime := NewPoint()
-	RPrime = RPrime.Set(bobR8)
+	// R' = R8 + a*G + b*P
+	RPrime := NewPoint().Set(bobR8)
 	RPrime.Add(aG)
-	RPrime.Add(bP)
+	// RPrime.Add(bP)
 
-	// Compute e' = H(R' || P || M) using the mock Poseidon Hash
-	hmInput := []*big.Int{RPrime.X, RPrime.Y, bobPublicKey.X, bobPublicKey.Y, blindMsg}
+	// Step 2.3: Alice computes e' = H(R' || P || M) using the modulo Poseidon Hash
+	hmInput := []*big.Int{RPrime.X, RPrime.Y, bobPublicKey.X, bobPublicKey.Y, msg}
 	ePrime, err := poseidon.Hash(hmInput)
 	if err != nil {
 		return nil, fmt.Errorf("error hashing message: %v", err)
 	}
 
-	log.Printf("hmInput: %v", hmInput)
+	// log.Printf("hmInput: %v", hmInput)
 	log.Printf("ePrime: %v", ePrime)
 
-	// Compute e = e' + b mod L
-	e := new(big.Int).Add(ePrime, b)
-	e.Mod(e, Order)
+	// Compute e = e' + b mod q
+	// e := new(big.Int).Add(ePrime, b)
+	// e.Mod(e, SubOrder)
+	e := new(big.Int).Set(ePrime)
 
-	// Send e to Bob
+	// Alice sends e to Bob
 
-	// Step 3: Bob computes s = e*x + k mod L
-	s := new(big.Int).Mul(e, k.Scalar().BigInt())
-	s.Add(s, bobK)
-	s.Mod(s, Order)
+	// Step 3: Bob computes s = e*x + k mod q
+	S := new(big.Int).Lsh(k.Scalar().BigInt(), 3)
+	S = S.Mul(e, S)
+	S.Add(bobK, S)
+	S.Mod(S, SubOrder)
 
-	// Send s to Alice
+	// Bob sends s to Alice
 
-	// Step 4: Alice computes s' = s + a mod L
-	sprime := new(big.Int).Add(s, a)
-	sprime.Mod(sprime, Order)
+	// Step 4: Alice computes s' = s + a mod q
+	sprime := new(big.Int).Add(S, a)
+	sprime.Mod(sprime, SubOrder)
 
 	// The pair (R', s') is a valid signature
 	fmt.Println("Signature Rx':", RPrime.X)
 	fmt.Println("Signature Ry':", RPrime.Y)
-	fmt.Println("Signature s':", sprime)
+	// fmt.Println("Signature s':", sprime)
 
-	return &Signature{R8: RPrime, S: sprime}, nil
+	fmt.Println("Signature s':", S)
+
+	return &Signature{R8: RPrime, S: S}, nil
 }
 
 // VerifyPoseidon verifies the signature of a message encoded as a big.Int in Zq
@@ -385,12 +393,14 @@ func (pk *PublicKey) VerifyPoseidon(msg *big.Int, sig *Signature) bool {
 	}
 
 	left := NewPoint().Mul(sig.S, B8) // left = s * 8 * B
+
 	r1 := big.NewInt(8)
 	r1.Mul(r1, hm)
 	right := NewPoint().Mul(r1, pk.Point())
 	rightProj := right.Projective()
 	rightProj.Add(sig.R8.Projective(), rightProj) // right = 8 * R + 8 * hm * A
 	right = rightProj.Affine()
+
 	return (left.X.Cmp(right.X) == 0) && (left.Y.Cmp(right.Y) == 0)
 }
 

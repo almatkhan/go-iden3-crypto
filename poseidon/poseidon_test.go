@@ -11,6 +11,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestPoseidonModulusTest(t *testing.T) {
+	inputs := []*big.Int{
+		convert(t, "549455014815407822041298894726765398118632593969949261304740223239783774989"),
+		convert(t, "20248898829456731115498795764027333925858734203679613367910871540690895592857"),
+		convert(t, "1195543368136468765146755175032576141557459636656770390748661887897205986871"),
+		convert(t, "14846473541106280418873942108704102616206127874303808135426070054592553091034"),
+		convert(t, "52634899163116809262136608241038186439512044512936943572762645277163060418378243324"),
+	}
+	_, err := HashWithState(inputs, convert(t, "0"))
+	require.Nil(t, err)
+}
+
+func convert(t *testing.T, s string) *big.Int {
+	t.Helper()
+	b, ok := new(big.Int).SetString(s, 10)
+	require.True(t, ok)
+	return b
+}
+
 func TestPoseidonHash(t *testing.T) {
 	b0 := big.NewInt(0)
 	b1 := big.NewInt(1)
