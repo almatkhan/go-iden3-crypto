@@ -291,8 +291,6 @@ func (pk *PublicKey) VerifyMimc7(msg *big.Int, sig *Signature) bool {
 // SignPoseidon signs a message encoded as a big.Int in Zq using blake-512 hash
 // for buffer hashing and Poseidon for big.Int hashing.
 func (sk *PrivateKey) SignPoseidon(msg *big.Int) *Signature {
-	msg = AltBn128Modulo(msg)
-
 	h1 := Blake512(sk[:])
 	msgBuf := utils.BigIntLEBytes(msg)
 	msgBuf32 := [32]byte{}
@@ -300,28 +298,21 @@ func (sk *PrivateKey) SignPoseidon(msg *big.Int) *Signature {
 	rBuf := Blake512(append(h1[32:], msgBuf32[:]...))
 	r := utils.SetBigIntFromLEBytes(new(big.Int), rBuf) // r = H(H_{32..63}(k), msg)
 	r.Mod(r, SubOrder)
-	r = AltBn128Modulo(r)
 
 	R8 := NewPoint().Mul(r, B8) // R8 = r * 8 * B
-	R8.X = AltBn128Modulo(R8.X)
-	R8.Y = AltBn128Modulo(R8.Y)
 
 	A := sk.Public().Point()
-	A.X = AltBn128Modulo(A.X)
-	A.Y = AltBn128Modulo(A.Y)
 
 	hmInput := []*big.Int{R8.X, R8.Y, A.X, A.Y, msg}
 	hm, err := poseidon.Hash(hmInput) // hm = H1(8*R.x, 8*R.y, A.x, A.y, msg)
 	if err != nil {
 		panic(err)
 	}
-	hm = AltBn128Modulo(hm)
 
 	S := sk.Scalar().BigInt()
 	S = S.Mul(hm, S)
 	S.Add(r, S)
 	S.Mod(S, SubOrder) // S = r + hm * s
-	S = AltBn128Modulo(S)
 
 	return &Signature{R8: R8, S: S}
 }
@@ -329,37 +320,18 @@ func (sk *PrivateKey) SignPoseidon(msg *big.Int) *Signature {
 // VerifyPoseidon verifies the signature of a message encoded as a big.Int in Zq
 // using blake-512 hash for buffer hashing and Poseidon for big.Int hashing.
 func (pk *PublicKey) VerifyPoseidon(msg *big.Int, sig *Signature) bool {
-	msg = AltBn128Modulo(msg)
-	sig.R8.X = AltBn128Modulo(sig.R8.X)
-	sig.R8.Y = AltBn128Modulo(sig.R8.Y)
-	sig.S = AltBn128Modulo(sig.S)
-
 	hmInput := []*big.Int{sig.R8.X, sig.R8.Y, pk.X, pk.Y, msg}
 	hm, err := poseidon.Hash(hmInput) // hm = H1(8*R.x, 8*R.y, A.x, A.y, msg)
 	if err != nil {
 		return false
 	}
-	hm = AltBn128Modulo(hm)
 
 	left := NewPoint().Mul(sig.S, B8) // left = s * 8 * B
-	left.X = AltBn128Modulo(left.X)
-	left.Y = AltBn128Modulo(left.Y)
 
-	// r1 := big.NewInt(8)
-	// r1.Mul(r1, hm)
-	// r1 = AltBn128Modulo(r1)
-
-	// right := NewPoint().Mul(r1, pk.Point())
 	right := NewPoint().Mul(hm, pk.Point())
-
-	right.X = AltBn128Modulo(right.X)
-	right.Y = AltBn128Modulo(right.Y)
-
 	rightProj := right.Projective()
 	rightProj.Add(sig.R8.Projective(), rightProj) // right = 8 * R + 8 * hm * A
 	right = rightProj.Affine()
-	right.X = AltBn128Modulo(right.X)
-	right.Y = AltBn128Modulo(right.Y)
 
 	return (left.X.Cmp(right.X) == 0) && (left.Y.Cmp(right.Y) == 0)
 }
@@ -476,10 +448,4 @@ func (sk *PrivateKey) BlindSign(msg *big.Int) (*Signature, error) {
 	fmt.Println("Signature s':", S)
 
 	return &Signature{R8: RPrime, S: S}, nil
-}
-
-func AltBn128Modulo(v *big.Int) *big.Int {
-	// m, _ := new(big.Int).SetString(MaxAltBn128ValueString, 10)
-	// return new(big.Int).Mod(v, m)
-	return v
 }
