@@ -43,8 +43,22 @@ func NewRandPrivKey() PrivateKey {
 // Scalar converts a private key into the scalar value s following the EdDSA
 // standard, and using blake-512 hash.
 func (sk *PrivateKey) Scalar() *PrivKeyScalar {
-	s := SkToBigInt(sk)
+	s := SkToRawBigInt(sk)
 	return NewPrivKeyScalar(s)
+}
+
+// SkToRawBigInt converts a private key into the *big.Int value.
+func SkToRawBigInt(sk *PrivateKey) *big.Int {
+	return new(big.Int).SetBytes(sk[:])
+}
+
+// SkToPoseidonHash converts a private key into the *big.Int value hashing it
+// with Poseidon. This is not secure, but this way we make sure that the
+// key is compatible with ZoKrates.
+func SkToPoseidonHash(sk *PrivateKey) *big.Int {
+	s := new(big.Int).SetBytes(sk[:])
+	h, _ := poseidon.Hash([]*big.Int{s})
+	return h
 }
 
 // SkToBigInt converts a private key into the *big.Int value following the
