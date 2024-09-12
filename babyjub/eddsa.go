@@ -317,10 +317,10 @@ func (sk *PrivateKey) SignPoseidon(msg *big.Int) *Signature {
 	}
 	hm = AltBn128Modulo(hm)
 
-	S := new(big.Int).Lsh(sk.Scalar().BigInt(), 3)
+	S := sk.Scalar().BigInt()
 	S = S.Mul(hm, S)
 	S.Add(r, S)
-	S.Mod(S, SubOrder) // S = r + hm * 8 * s
+	S.Mod(S, SubOrder) // S = r + hm * s
 	S = AltBn128Modulo(S)
 
 	return &Signature{R8: R8, S: S}
@@ -345,11 +345,13 @@ func (pk *PublicKey) VerifyPoseidon(msg *big.Int, sig *Signature) bool {
 	left.X = AltBn128Modulo(left.X)
 	left.Y = AltBn128Modulo(left.Y)
 
-	r1 := big.NewInt(8)
-	r1.Mul(r1, hm)
-	r1 = AltBn128Modulo(r1)
+	// r1 := big.NewInt(8)
+	// r1.Mul(r1, hm)
+	// r1 = AltBn128Modulo(r1)
 
-	right := NewPoint().Mul(r1, pk.Point())
+	// right := NewPoint().Mul(r1, pk.Point())
+	right := NewPoint().Mul(hm, pk.Point())
+
 	right.X = AltBn128Modulo(right.X)
 	right.Y = AltBn128Modulo(right.Y)
 

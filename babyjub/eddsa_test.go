@@ -103,6 +103,24 @@ func TestBlindTest(t *testing.T) {
 	assert.Equal(t, true, ok)
 }
 
+func TestSignVerifyPoseidonLight(t *testing.T) {
+	var k PrivateKey
+	_, err := hex.Decode(k[:],
+		[]byte("0001020304050607080900010203040506070809000102030405060708090001"))
+	require.Nil(t, err)
+	msgBuf, err := hex.DecodeString("00010203040506070809")
+	if err != nil {
+		panic(err)
+	}
+
+	msg := utils.SetBigIntFromLEBytes(new(big.Int), msgBuf)
+
+	signature := k.SignPoseidon(msg)
+
+	ok := k.Public().VerifyPoseidon(msg, signature)
+	assert.Equal(t, true, ok)
+}
+
 func TestSignVerifyPoseidon(t *testing.T) {
 	var k PrivateKey
 	_, err := hex.Decode(k[:],
