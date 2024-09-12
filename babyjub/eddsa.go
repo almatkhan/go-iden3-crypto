@@ -15,6 +15,8 @@ import (
 	"github.com/almatkhan/go-iden3-crypto/utils"
 )
 
+const MaxAltBn128ValueString = "21888242871839275222246405745257275088548364400416034343698204186575808495617"
+
 // pruneBuffer prunes the buffer during key generation according to RFC 8032.
 // https://tools.ietf.org/html/rfc8032#page-13
 func pruneBuffer(buf *[32]byte) *[32]byte {
@@ -40,15 +42,15 @@ func NewRandPrivKey() PrivateKey {
 
 // Scalar converts a private key into the scalar value s following the EdDSA
 // standard, and using blake-512 hash.
-func (k *PrivateKey) Scalar() *PrivKeyScalar {
-	s := SkToBigInt(k)
+func (sk *PrivateKey) Scalar() *PrivKeyScalar {
+	s := SkToBigInt(sk)
 	return NewPrivKeyScalar(s)
 }
 
 // SkToBigInt converts a private key into the *big.Int value following the
 // EdDSA standard, and using blake-512 hash
-func SkToBigInt(k *PrivateKey) *big.Int {
-	sBuf := Blake512(k[:])
+func SkToBigInt(sk *PrivateKey) *big.Int {
+	sBuf := Blake512(sk[:])
 	sBuf32 := [32]byte{}
 	copy(sBuf32[:], sBuf[:32])
 	pruneBuffer(&sBuf32)
@@ -59,8 +61,8 @@ func SkToBigInt(k *PrivateKey) *big.Int {
 }
 
 // Public returns the public key corresponding to a private key.
-func (k *PrivateKey) Public() *PublicKey {
-	return k.Scalar().Public()
+func (sk *PrivateKey) Public() *PublicKey {
+	return sk.Scalar().Public()
 }
 
 // PrivKeyScalar represents the scalar s output of a private key
@@ -244,8 +246,8 @@ func (s Signature) Value() (driver.Value, error) {
 
 // SignMimc7 signs a message encoded as a big.Int in Zq using blake-512 hash
 // for buffer hashing and mimc7 for big.Int hashing.
-func (k *PrivateKey) SignMimc7(msg *big.Int) *Signature {
-	h1 := Blake512(k[:])
+func (sk *PrivateKey) SignMimc7(msg *big.Int) *Signature {
+	h1 := Blake512(sk[:])
 	msgBuf := utils.BigIntLEBytes(msg)
 	msgBuf32 := [32]byte{}
 	copy(msgBuf32[:], msgBuf[:])
@@ -253,13 +255,13 @@ func (k *PrivateKey) SignMimc7(msg *big.Int) *Signature {
 	r := utils.SetBigIntFromLEBytes(new(big.Int), rBuf) // r = H(H_{32..63}(k), msg)
 	r.Mod(r, SubOrder)
 	R8 := NewPoint().Mul(r, B8) // R8 = r * 8 * B
-	A := k.Public().Point()
+	A := sk.Public().Point()
 	hmInput := []*big.Int{R8.X, R8.Y, A.X, A.Y, msg}
 	hm, err := mimc7.Hash(hmInput, nil) // hm = H1(8*R.x, 8*R.y, A.x, A.y, msg)
 	if err != nil {
 		panic(err)
 	}
-	S := new(big.Int).Lsh(k.Scalar().BigInt(), 3)
+	S := new(big.Int).Lsh(sk.Scalar().BigInt(), 3)
 	S = S.Mul(hm, S)
 	S.Add(r, S)
 	S.Mod(S, SubOrder) // S = r + hm * 8 * s
@@ -288,29 +290,119 @@ func (pk *PublicKey) VerifyMimc7(msg *big.Int, sig *Signature) bool {
 
 // SignPoseidon signs a message encoded as a big.Int in Zq using blake-512 hash
 // for buffer hashing and Poseidon for big.Int hashing.
-func (k *PrivateKey) SignPoseidon(msg *big.Int) *Signature {
-	h1 := Blake512(k[:])
+func (sk *PrivateKey) SignPoseidon(msg *big.Int) *Signature {
+	msg = AltBn128Modulo(msg)
+
+	h1 := Blake512(sk[:])
 	msgBuf := utils.BigIntLEBytes(msg)
 	msgBuf32 := [32]byte{}
 	copy(msgBuf32[:], msgBuf[:])
 	rBuf := Blake512(append(h1[32:], msgBuf32[:]...))
 	r := utils.SetBigIntFromLEBytes(new(big.Int), rBuf) // r = H(H_{32..63}(k), msg)
 	r.Mod(r, SubOrder)
+	r = AltBn128Modulo(r)
+
 	R8 := NewPoint().Mul(r, B8) // R8 = r * 8 * B
-	A := k.Public().Point()
+	R8.X = AltBn128Modulo(R8.X)
+	R8.Y = AltBn128Modulo(R8.Y)
+
+	A := sk.Public().Point()
+	A.X = AltBn128Modulo(A.X)
+	A.Y = AltBn128Modulo(A.Y)
 
 	hmInput := []*big.Int{R8.X, R8.Y, A.X, A.Y, msg}
 	hm, err := poseidon.Hash(hmInput) // hm = H1(8*R.x, 8*R.y, A.x, A.y, msg)
 	if err != nil {
 		panic(err)
 	}
+	hm = AltBn128Modulo(hm)
 
-	S := new(big.Int).Lsh(k.Scalar().BigInt(), 3)
+	S := new(big.Int).Lsh(sk.Scalar().BigInt(), 3)
 	S = S.Mul(hm, S)
 	S.Add(r, S)
 	S.Mod(S, SubOrder) // S = r + hm * 8 * s
+	S = AltBn128Modulo(S)
 
 	return &Signature{R8: R8, S: S}
+}
+
+// VerifyPoseidon verifies the signature of a message encoded as a big.Int in Zq
+// using blake-512 hash for buffer hashing and Poseidon for big.Int hashing.
+func (pk *PublicKey) VerifyPoseidon(msg *big.Int, sig *Signature) bool {
+	msg = AltBn128Modulo(msg)
+	sig.R8.X = AltBn128Modulo(sig.R8.X)
+	sig.R8.Y = AltBn128Modulo(sig.R8.Y)
+	sig.S = AltBn128Modulo(sig.S)
+
+	hmInput := []*big.Int{sig.R8.X, sig.R8.Y, pk.X, pk.Y, msg}
+	hm, err := poseidon.Hash(hmInput) // hm = H1(8*R.x, 8*R.y, A.x, A.y, msg)
+	if err != nil {
+		return false
+	}
+	hm = AltBn128Modulo(hm)
+
+	left := NewPoint().Mul(sig.S, B8) // left = s * 8 * B
+	left.X = AltBn128Modulo(left.X)
+	left.Y = AltBn128Modulo(left.Y)
+
+	r1 := big.NewInt(8)
+	r1.Mul(r1, hm)
+	r1 = AltBn128Modulo(r1)
+
+	right := NewPoint().Mul(r1, pk.Point())
+	right.X = AltBn128Modulo(right.X)
+	right.Y = AltBn128Modulo(right.Y)
+
+	rightProj := right.Projective()
+	rightProj.Add(sig.R8.Projective(), rightProj) // right = 8 * R + 8 * hm * A
+	right = rightProj.Affine()
+	right.X = AltBn128Modulo(right.X)
+	right.Y = AltBn128Modulo(right.Y)
+
+	return (left.X.Cmp(right.X) == 0) && (left.Y.Cmp(right.Y) == 0)
+}
+
+// Scan implements Scanner for database/sql.
+func (pk *PublicKey) Scan(src interface{}) error {
+	srcB, ok := src.([]byte)
+	if !ok {
+		return fmt.Errorf("can't scan %T into PublicKey", src)
+	}
+	if len(srcB) != 32 {
+		return fmt.Errorf("can't scan []byte of len %d into PublicKey, want %d", len(srcB), 32)
+	}
+	var comp PublicKeyComp
+	copy(comp[:], srcB)
+	decomp, err := comp.Decompress()
+	if err != nil {
+		return err
+	}
+	*pk = *decomp
+	return nil
+}
+
+// Value implements valuer for database/sql.
+func (pk PublicKey) Value() (driver.Value, error) {
+	comp := pk.Compress()
+	return comp[:], nil
+}
+
+// Scan implements Scanner for database/sql.
+func (pkComp *PublicKeyComp) Scan(src interface{}) error {
+	srcB, ok := src.([]byte)
+	if !ok {
+		return fmt.Errorf("can't scan %T into PublicKeyComp", src)
+	}
+	if len(srcB) != 32 {
+		return fmt.Errorf("can't scan []byte of len %d into PublicKeyComp, want %d", len(srcB), 32)
+	}
+	copy(pkComp[:], srcB)
+	return nil
+}
+
+// Value implements valuer for database/sql.
+func (pkComp PublicKeyComp) Value() (driver.Value, error) {
+	return pkComp[:], nil
 }
 
 func (sk *PrivateKey) BlindSign(msg *big.Int) (*Signature, error) {
@@ -384,66 +476,8 @@ func (sk *PrivateKey) BlindSign(msg *big.Int) (*Signature, error) {
 	return &Signature{R8: RPrime, S: S}, nil
 }
 
-// VerifyPoseidon verifies the signature of a message encoded as a big.Int in Zq
-// using blake-512 hash for buffer hashing and Poseidon for big.Int hashing.
-func (pk *PublicKey) VerifyPoseidon(msg *big.Int, sig *Signature) bool {
-	hmInput := []*big.Int{sig.R8.X, sig.R8.Y, pk.X, pk.Y, msg}
-	hm, err := poseidon.Hash(hmInput) // hm = H1(8*R.x, 8*R.y, A.x, A.y, msg)
-	if err != nil {
-		return false
-	}
-
-	left := NewPoint().Mul(sig.S, B8) // left = s * 8 * B
-
-	r1 := big.NewInt(8)
-	r1.Mul(r1, hm)
-	right := NewPoint().Mul(r1, pk.Point())
-	rightProj := right.Projective()
-	rightProj.Add(sig.R8.Projective(), rightProj) // right = 8 * R + 8 * hm * A
-	right = rightProj.Affine()
-
-	return (left.X.Cmp(right.X) == 0) && (left.Y.Cmp(right.Y) == 0)
-}
-
-// Scan implements Scanner for database/sql.
-func (pk *PublicKey) Scan(src interface{}) error {
-	srcB, ok := src.([]byte)
-	if !ok {
-		return fmt.Errorf("can't scan %T into PublicKey", src)
-	}
-	if len(srcB) != 32 {
-		return fmt.Errorf("can't scan []byte of len %d into PublicKey, want %d", len(srcB), 32)
-	}
-	var comp PublicKeyComp
-	copy(comp[:], srcB)
-	decomp, err := comp.Decompress()
-	if err != nil {
-		return err
-	}
-	*pk = *decomp
-	return nil
-}
-
-// Value implements valuer for database/sql.
-func (pk PublicKey) Value() (driver.Value, error) {
-	comp := pk.Compress()
-	return comp[:], nil
-}
-
-// Scan implements Scanner for database/sql.
-func (pkComp *PublicKeyComp) Scan(src interface{}) error {
-	srcB, ok := src.([]byte)
-	if !ok {
-		return fmt.Errorf("can't scan %T into PublicKeyComp", src)
-	}
-	if len(srcB) != 32 {
-		return fmt.Errorf("can't scan []byte of len %d into PublicKeyComp, want %d", len(srcB), 32)
-	}
-	copy(pkComp[:], srcB)
-	return nil
-}
-
-// Value implements valuer for database/sql.
-func (pkComp PublicKeyComp) Value() (driver.Value, error) {
-	return pkComp[:], nil
+func AltBn128Modulo(v *big.Int) *big.Int {
+	// m, _ := new(big.Int).SetString(MaxAltBn128ValueString, 10)
+	// return new(big.Int).Mod(v, m)
+	return v
 }
