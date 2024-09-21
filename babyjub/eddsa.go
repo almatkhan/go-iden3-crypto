@@ -29,6 +29,13 @@ func pruneBuffer(buf *[32]byte) *[32]byte {
 // PrivateKey is an EdDSA private key, which is a 32byte buffer.
 type PrivateKey [32]byte
 
+func NewFromBytes(buf []byte) *PrivateKey {
+	var k PrivateKey
+	input := PadTruncateTo32Bytes(buf)
+	copy(k[:], input)
+	return &k
+}
+
 // NewRandPrivKey generates a new random private key (using cryptographically
 // secure randomness).
 func NewRandPrivKey() PrivateKey {
@@ -49,7 +56,7 @@ func (sk *PrivateKey) Scalar() *PrivKeyScalar {
 
 // SkToRawBigInt converts a private key into the *big.Int value.
 func SkToRawBigInt(sk *PrivateKey) *big.Int {
-	return new(big.Int).SetBytes(sk[:])
+	return big.NewInt(0).SetBytes(sk[:])
 }
 
 // SkToPoseidonHash converts a private key into the *big.Int value hashing it
@@ -91,7 +98,7 @@ func NewPrivKeyScalar(s *big.Int) *PrivKeyScalar {
 // Public returns the public key corresponding to the scalar value s of a
 // private key.
 func (s *PrivKeyScalar) Public() *PublicKey {
-	p := NewPoint().Mul((*big.Int)(s), B8)
+	p := NewPoint().Mul(s.BigInt(), B8)
 	pk := PublicKey(*p)
 	return &pk
 }
@@ -462,4 +469,26 @@ func (sk *PrivateKey) BlindSign(msg *big.Int) (*Signature, error) {
 	fmt.Println("Signature s':", S)
 
 	return &Signature{R8: RPrime, S: S}, nil
+}
+
+// PadTruncateTo32Bytes pads any byte slice shorter than 32 bytes with leading zeros
+// or truncates any byte slice longer than 32 bytes by keeping the last 32 bytes.
+// If the input is exactly 32 bytes, it returns the input unchanged.
+func PadTruncateTo32Bytes(input []byte) []byte {
+	const targetLength = 32
+	inputLen := len(input)
+
+	if inputLen == targetLength {
+		// Input is already 32 bytes; return as is.
+		return input
+	} else if inputLen < targetLength {
+		// Input is shorter than 32 bytes; pad with leading zeros.
+		padded := make([]byte, targetLength)
+		leadingZeros := targetLength - inputLen
+		copy(padded[leadingZeros:], input)
+		return padded
+	} else {
+		// Input is longer than 32 bytes; truncate by keeping the last 32 bytes.
+		return input[inputLen-targetLength:]
+	}
 }

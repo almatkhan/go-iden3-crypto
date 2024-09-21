@@ -46,6 +46,12 @@ func SetBigIntFromLEBytes(v *big.Int, leBuf []byte) *big.Int {
 	return v.SetBytes(beBuf)
 }
 
+// SetBigIntFromBEBytes sets the value of a big.Int from a Big-Endian
+// encoded value.
+func SetBigIntFromBEBytes(v *big.Int, beBuf []byte) *big.Int {
+	return v.SetBytes(beBuf)
+}
+
 // Hex is a byte slice type that can be marshaled and unmarshaled in hex
 type Hex []byte
 

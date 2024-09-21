@@ -24,6 +24,21 @@ func TestPublicKey(t *testing.T) {
 	assert.True(t, pk.Y.Cmp(constants.Q) == -1)
 }
 
+func TestScalarMulti(t *testing.T) {
+	skStr := "261414950623193321214174785692880037640563803542450278013849014015376285557"
+	sk, _ := new(big.Int).SetString(skStr, 10)
+	fmt.Printf("sk: %s\n", sk.String())
+	// p := NewPoint().Mul(sk, B8)
+	// fmt.Printf("X: %s\nY: %s\n", p.X.String(), p.Y.String())
+
+	ssk := NewFromBytes(sk.Bytes())
+	fmt.Printf("ssk: %s\n", ssk.Scalar().BigInt().String())
+
+	pk := ssk.Public()
+
+	fmt.Printf("pkX: %s, pkY: %s\n", pk.X.String(), pk.Y.String())
+}
+
 func TestSignVerifyMimc7(t *testing.T) {
 	var k PrivateKey
 	_, err := hex.Decode(k[:],
