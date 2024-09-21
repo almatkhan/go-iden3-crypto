@@ -29,6 +29,7 @@ func pruneBuffer(buf *[32]byte) *[32]byte {
 // PrivateKey is an EdDSA private key, which is a 32byte buffer.
 type PrivateKey [32]byte
 
+// NewFromBytes creates a new PrivateKey from a big-endian byte slice.
 func NewFromBytes(buf []byte) *PrivateKey {
 	var k PrivateKey
 	input := PadTruncateTo32Bytes(buf)
